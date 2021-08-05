@@ -1,0 +1,188 @@
+---
+title: "Principle Component Regression"
+author: "Atakan Düzgün"
+
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<br>
+<br>
+
+## The prostate data frame has 97 rows and 9 columns. A study on 97 men with prostate cancer who were due to receive a radical prostatectomy.
+
+<br>
+<br>
+
+```{r}
+library(faraway)
+library(pls)
+
+data("prostate")
+summary(prostate)
+```
+
+<br>
+
+#### lcavol  - log(cancer volume)
+#### lweight - log(prostate weight)
+#### age     - age
+#### lbph    - log(benign prostatic hyperplasia amount)
+#### svi     - seminal vesicle invasion
+#### lcp     - log(capsular penetration)
+#### gleason - Gleason score
+#### lpsa    - log(prostate specific antigen)
+
+
+<br>
+
+```{r}
+set.seed(120)
+
+index <- sample(1:nrow(prostate),round(0.75*nrow(prostate)))
+Datatrain <- prostate[index,-8]
+datatest <- prostate[-index,-8]
+
+
+```
+
+<br>
+
+#### "lcavol" as the dependent variable.
+
+<br>
+
+
+```{r}
+lmod<-lm(lcavol ~.,data=Datatrain)
+vif(lmod)
+```
+
+<br>
+
+#### When we set up the least square regression model and look at the vif values, it is seen that there is no interrelationship problem in the data.
+
+<br>
+
+```{r}
+rmse <- function(x,y) sqrt(mean((x-y)^2))
+
+rmse(predict(lmod,Datatrain),Datatrain$lcavol)
+rmse(predict(lmod,datatest),datatest$lcavol)
+
+```
+
+<br>
+
+#### RMSE values for training and testing datasets are not significantly different. This difference indicates that there is no collinearity problem.
+
+<br>
+
+```{r}
+pcrmod <- pcr(lcavol ~., data=Datatrain,scale=T)
+summary(pcrmod)
+
+```
+
+<br>
+
+#### The variability in the response with 2 components is approximately 60.61% can be explained.
+
+
+<br>
+<br>
+
+```{r}
+validationplot(pcrmod,val.type = "RMSE")
+
+
+pcrmse <- RMSEP(pcrmod)
+pcrmse
+```
+
+
+
+<br>
+<br>
+<br>
+
+
+```{r}
+validationplot(pcrmod,val.type = "R2")
+
+```
+<br>
+
+#### The 7 components seem to be the best in terms of performance on the traim data set.
+
+#### However, with 2 Components, we obtain a result close to 7 components, and we have reduced the processing intensity and optimized the model.
+
+
+
+
+<br>
+<br>
+
+#### Installed with 2 components coefficients of the model
+
+<br>
+
+```{r}
+coef(pcrmod,ncomp=2)
+```
+
+<br>
+<br>
+
+```{r}
+rmse(predict(pcrmod,ncomp = 2),Datatrain$lcavol)
+rmse(predict(pcrmod,datatest,ncomp = 2),datatest$lcavol)
+```
+<br>
+
+#### Our prediction performance on test data has decreased. It will be more accurate to use the cross validation method when determining the optimal number of components.
+
+
+<br>
+<br>
+
+
+
+### Fundamental Component Analysis with Cross-Validation for 1000 times
+
+```{r}
+set.seed(100)
+
+comp<- NULL
+for(i in 1:1000) 
+  
+{
+  
+pcrmod1 <- pcr(lcavol ~.,data=Datatrain,scale=T,validation="CV")
+
+pcrCV <- RMSEP(pcrmod1,estimate="CV")
+pcrCV
+
+comp[i] <- which.min(pcrCV$val) 
+
+}
+
+
+comp <- as.factor(comp)
+summary(comp)
+```
+<br>
+
+#### While 2 (3-1) components were selected as the optimal component 500 times in the Fundamental Component Analysis with Cross-Validation, which was done 1000 times,
+
+<br>
+
+#### 7 (8-1) components were selected as the optimal component 488 times.
+
+<br>
+
+#### According to these results, my interpretation is that it is appropriate to use 2 components to make this model optimal.
+
